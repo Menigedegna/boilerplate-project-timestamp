@@ -4,7 +4,7 @@
 // init project
 var express = require('express');
 var app = express();
-
+var moment = require('moment');
 // enable CORS (https://en.wikipedia.org/wiki/Cross-origin_resource_sharing)
 // so that your API is remotely testable by FCC 
 var cors = require('cors');
@@ -31,7 +31,12 @@ var listener = app.listen(process.env.PORT, function () {
   console.log('Your app is listening on port ' + listener.address().port);
 });
 
-// function to format date: should be "Fri, 25 Dec 2015 00:00:00 GMT"
+
+// ---------------------------------------------------------------
+// A request to /api/:date? with a valid date should return a JSON object with a unix key that is a Unix timestamp of the input date in milliseconds (as type Number)
+// ---------------------------------------------------------------
+
+// function to format date sting:  should be "Fri, 25 Dec 2015 00:00:00 GMT"
 const displayTime = (time) => {
   //format date
   const optionsDate = {
@@ -56,32 +61,46 @@ const displayTime = (time) => {
   return text;
 }
 
-// A request to /api/:date? with a valid date should return a JSON object with a unix key that is a Unix timestamp of the input date in milliseconds (as type Number)
-app.get("/api/:date", function (req, res) {
-  console.log(req.params.date +" - " +req.ip);
-  var time = new Date(req.params.date);
-  if (time != "Invalid Date"){
-    // /api/:date? with a valid date should return a JSON 
-    result = displayTime(time);
-    res.json({unix: time.getTime(), utc: result});    
-  }
-  else{
-    var time = new Date(+req.params.date);
-    // A request to /api/1451001600000 should return a JSON Object
-    if (time != "Invalid Date"){
-      result = displayTime(time);
-      res.json({unix: time.getTime(), utc: result});    
-    }
-    else{
-      // If the input date string is invalid,
-      res.json({error: "Invalid Date" });
-    } 
-  }
-});
-
-// An empty date parameter (/api/)  should return the current time 
-app.get("/api/", function (req, res) {
+// SCENARIO date is NOT GIVEN
+app.get("/api", function (req, res) {
   var time = new Date();
+  // var timeStamp = time.getTime() + 3000;
+  // time = new Date(timeStamp);
   result = displayTime(time);
   res.json({unix: time.getTime(), utc: result});  
 });
+
+
+// SCENARIO date is  GIVEN
+app.get(
+  "/api/:date",
+  (req, res, next) => {
+    // SCENARIO date = 2015-12-25 
+    var time = new Date(req.params.date);
+    if (time != "Invalid Date"){
+      req.time = [time];
+    }
+    else{
+      // SCENARIO date = 1451001600000
+      var time = new Date(+req.params.date);
+      if (time != "Invalid Date"){
+        req.time = [time];
+      }
+      // SCENARIO date is INVALID
+      else{
+        req.time = [];
+      } 
+    }     
+    next();
+  },
+  (req, res) => {
+    if (req.time.length>0){
+      var unix = req.time[0].getTime();
+      var utc = displayTime(req.time[0]);
+      res.json({unix: unix, utc: utc});    
+    }
+    else{
+      res.json({error: "Invalid Date" });
+    }
+  }
+);
